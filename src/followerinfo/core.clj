@@ -11,7 +11,7 @@
 (defn twitter-api
   "Makes a call to the Twitter API and returns the decoded response body."
   [endpoint params]
-  (log/infof "Twitter API: %s %s" endpoint params)
+  (log/debugf "Twitter req: %s %s" endpoint params)
   (let [url (str twitter-api-base endpoint)
         resp (client/get url {:query-params params :as :json})]
     (:body resp)))
