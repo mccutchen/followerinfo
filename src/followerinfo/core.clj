@@ -1,5 +1,6 @@
 (ns followerinfo.core
-  (:require [cheshire.core :as json]
+  (:require [clojure.set :refer (union intersection)]
+            [cheshire.core :as json]
             [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
             [clj-http.client :as client])
@@ -16,7 +17,7 @@
     (:body resp)))
 
 (defn fetch-follower-ids
-  "Returns a lazy seq of user IDs of the followers of the given user."
+  "Returns a set of user IDs of the followers of the given user."
   ([handle]
      (fetch-follower-ids handle -1 []))
   ([handle cursor acc]
@@ -25,26 +26,19 @@
            next_cursor (:next_cursor resp)]
        (if (> next_cursor 0)
          (recur handle next_cursor (concat acc ids))
-         (concat acc ids)))))
+         (set (concat acc ids))))))
 
 (defn fetch-follower-infos
   "Returns a lazy seq of maps of user info for the given IDs."
   ([ids]
      (fetch-follower-infos ids []))
   ([ids acc]
-     (let [these-ids (take 100 ids)
-           rest-ids (drop 100 ids)
-           infos (twitter-api "/users/lookup.json" {:user_id (apply str (interpose "," these-ids))})]
-       (if (empty? rest-ids)
-         (concat acc infos)
+     (if (empty? ids)
+       acc
+       (let [these-ids (take 100 ids)
+             rest-ids (drop 100 ids)
+             infos (twitter-api "/users/lookup.json" {:user_id (apply str (interpose "," these-ids))})]
          (recur rest-ids (concat acc infos))))))
-
-(defn fetch-followers
-  "Returns a lazy seq of maps of infomation about each of the followers of the
-  given Twitter handle."
-  [handle]
-  (let [ids (fetch-follower-ids handle)]
-    (fetch-follower-infos ids)))
 
 (defn make-formatter
   "Returns a function suitable for formatting each follower info record
@@ -59,15 +53,15 @@
   (let [[options args banner]
         (cli/cli args
              ["-h" "--help" "Show help" :default false :flag true]
-             ["-v" "--verbose" "Show detailed info about each follower"
-              :default false :flag true])]
+             ["-v" "--[no-]verbose" "Show detailed info about each follower" :default false]
+             ["-i" "--[no-]intersection" "Show intersection of followers (use --no-intersection to show union)" :default true])]
     (when (:help options)
       (println banner)
       (System/exit 0))
-    (let [handle (first args)
-          followers (fetch-followers handle)
+    (let [flattener (if (:intersection options) intersection union)
+          follower-ids (apply flattener (map fetch-follower-ids args))
+          followers (fetch-follower-infos follower-ids)
           formatter (make-formatter (:verbose options))]
-      (log/infof "@%s has %d followers\n" handle (count followers))
       ;; need to use doseq because followers is a lazy seq and map wouldn't
       ;; realize it.
       (doseq [rec followers] (formatter rec)))))
