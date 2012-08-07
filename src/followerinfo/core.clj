@@ -55,7 +55,7 @@
              ["-h" "--help" "Show help" :default false :flag true]
              ["-v" "--[no-]verbose" "Show detailed info about each follower" :default false]
              ["-i" "--[no-]intersection" "Show intersection of followers (use --no-intersection to show union)" :default true])]
-    (when (:help options)
+    (when (or (:help options) (= 0 (count args)))
       (println banner)
       (System/exit 0))
     (let [flattener (if (:intersection options) intersection union)
