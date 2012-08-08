@@ -45,8 +45,8 @@
   according to whether we want verbose output."
   [verbose?]
   (if verbose?
-    (fn [rec] (println (json/encode rec)))
-    (fn [{:keys [screen_name id]}] (printf "%s,%s\n" screen_name id))))
+    (fn [rec] (json/encode rec))
+    (fn [{:keys [screen_name id]}] (format "%s,%s" screen_name id))))
 
 (defn -main
   [& args]
@@ -64,4 +64,4 @@
           formatter (make-formatter (:verbose options))]
       ;; need to use doseq because followers is a lazy seq and map wouldn't
       ;; realize it.
-      (doseq [rec followers] (formatter rec)))))
+      (doseq [rec followers] (println (formatter rec))))))
